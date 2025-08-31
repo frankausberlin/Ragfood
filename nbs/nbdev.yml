@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "Ragfood"
+  site-url: "https://frankausberlin.github.io/Ragfood"
+  description: "A ipywidget based pdt-to-rag-tool for jupyter notebooks"
+  repo-branch: main
+  repo-url: "https://github.com/frankausberlin/Ragfood"
