@@ -13,38 +13,84 @@ from .states import *
 
 # %% ../nbs/03_Calibre.ipynb 4
 class Calibre(Colleague):
-    """The class represents a Calibre library and provides functions for handling it (book list, export).
+    """Calibre library management class for Ragfood.
     
-    You can specify export and library folders. After execution, you have access to the library (uses the calibredb command).
-    For testing purposes, you can create a sample library with four free books—simply enable the switch.
-    Creates a custom column in calibre: Embeddings to store informations.
+    This class provides a comprehensive interface to Calibre e-book library management,
+    including book listing, export functionality, and library creation. It extends
+    the Colleague class to participate in the mediator pattern for coordinated
+    communication with other Ragfood components.
+    
+    Features:
+    - Automatic Calibre installation detection
+    - Library validation and creation
+    - Sample library creation with 4 free books for testing
+    - PDF export functionality with metadata
+    - Custom embedding column management
+    - Book filtering (PDF format only)
+    
+    Attributes:
+        export_pdf_to_folder (str): Default folder for PDF exports
+        calibre_library_folder (str): Path to Calibre library
+        create_sample_library_with_4_books_if_library_folder_not_exists (bool):
+            Whether to auto-create sample library for testing
+        book_list (list): List of books in the library (PDF format only)
+        widget (HTML): Display widget showing library information
     """
     
-    # Static attributes
-    export_pdf_to_folder = '~/labor/ragfood_pdf'
-    calibre_library_folder = '~/labor/test_calibre_with_4_pdfs'
-    create_sample_library_with_4_books_if_library_folder_not_exists = True
+    # Class-level configuration attributes
+    export_pdf_to_folder = '~/labor/ragfood_pdf'  # Default export directory
+    calibre_library_folder = '~/labor/test_calibre_with_4_pdfs'  # Default library path
+    create_sample_library_with_4_books_if_library_folder_not_exists = True  # Auto-create sample library
     
     @staticmethod
     def create_library_with_4_books(library_folder=None):
-        """Create a sample library with 4 free books for testing."""
+        """Create a sample Calibre library with 4 free books for testing.
+        
+        Downloads and adds four freely available academic PDFs to a new Calibre library:
+        1. Mathematics for Machine Learning
+        2. Getting Started with Artificial Intelligence (IBM)
+        3. Attention Is All You Need (Transformer paper)
+        4. An Introduction to Convolutional Neural Networks
+        
+        Args:
+            library_folder (str, optional): Path for the new library.
+                Defaults to class attribute calibre_library_folder.
+        
+        Note:
+            This method uses curl to download PDFs and calibredb commands
+            to create and populate the library. Requires internet connection
+            and Calibre installation.
+        """
         if library_folder is None:
             library_folder = Calibre.calibre_library_folder
         
-        # temp folder
+        # Get system temporary directory for downloads
         tf = tempfile.gettempdir()
         
-        # create calibre library with 4 books if library folder is empty and switch is on
-        if Calibre.create_sample_library_with_4_books_if_library_folder_not_exists and not os.path.exists(os.path.expanduser(Calibre.calibre_library_folder)):
-            # get some free pdfs from github.com/nivu/ai_all_resources and arxiv.org
+        # Only create library if it doesn't exist and auto-creation is enabled
+        if (Calibre.create_sample_library_with_4_books_if_library_folder_not_exists and 
+            not os.path.exists(os.path.expanduser(Calibre.calibre_library_folder))):
+            
+            # Download free academic PDFs (only if not already present)
+            # Mathematics for Machine Learning book
             os.system(f"""[ -f {tf}/mathematics_for_machine_learning.pdf ] || curl -o {tf}/mathematics_for_machine_learning.pdf https://mml-book.github.io/book/mml-book.pdf""")
+            
+            # IBM AI getting started guide
             os.system(f"""[ -f {tf}/getting_started_with_artificial_intelligence.pdf ] || curl -o {tf}/getting_started_with_artificial_intelligence.pdf https://www.ibm.com/downloads/documents/us-en/107a02e94bc8f761""")
+            
+            # Attention Is All You Need paper (Transformers)
             os.system(f"""[ -f {tf}/attention_is_all_you_need.pdf ] || curl -o {tf}/attention_is_all_you_need.pdf https://arxiv.org/pdf/1706.03762""")
+            
+            # CNN introduction paper
             os.system(f"""[ -f {tf}/an_introduction_to_convolutional_neural_networks.pdf ] || curl -o {tf}/an_introduction_to_convolutional_neural_networks.pdf https://arxiv.org/pdf/1511.08458""")
             
-            # create empty library and add books
+            # Create Calibre library directory structure
             os.system(f"""mkdir {library_folder} && mkdir {library_folder}/.calnotes && mkdir {library_folder}/.caltrash""")
+            
+            # Initialize empty Calibre database
             os.system(f"""calibredb restore_database --really-do-it --library-path={library_folder} 1>/dev/null 2>&1""")
+            
+            # Add books to library with titles and authors
             os.system(f"""calibredb add -t 'MATHEMATICS FOR MACHINE LEARNING' {tf}/mathematics_for_machine_learning.pdf --library-path={library_folder} 1>/dev/null 2>&1""")
             os.system(f"""calibredb add -t 'Getting Started with Artificial Intelligence' {tf}/getting_started_with_artificial_intelligence.pdf --library-path={library_folder} 1>/dev/null 2>&1""")
             os.system(f"""calibredb add -t 'Attention Is All You Need' {tf}/attention_is_all_you_need.pdf -a "Ashish Vaswani & Noam Shazeer & Niki Parmar & Jakob Uszkoreit & Llion Jones & Aidan N. Gomez & Łukasz Kaiser" --library-path={library_folder} 1>/dev/null 2>&1""")
@@ -52,132 +98,283 @@ class Calibre(Colleague):
     
     @staticmethod
     def create_column_embedding(library_folder):
-        """Create custom embedding column in Calibre library."""
+        """Create a custom 'embedding' column in the Calibre library.
+        
+        This column is used to store embedding information for books,
+        which is essential for Ragfood's AI/ML functionality.
+        
+        Args:
+            library_folder (str): Path to the Calibre library
+            
+        Note:
+            Only creates the column if it doesn't already exist.
+            Silently handles any errors during creation.
+        """
         try:
-            custom_columns_output = subprocess.run(["calibredb", "--library-path=" + library_folder, "custom_columns", "-d"], check=True, capture_output=True, text=True).stdout
+            # Check if embedding column already exists
+            custom_columns_output = subprocess.run(
+                ["calibredb", "--library-path=" + library_folder, "custom_columns", "-d"], 
+                check=True, capture_output=True, text=True
+            ).stdout
+            
+            # Create embedding column if it doesn't exist
             if "'label': 'embedding'" not in custom_columns_output:
-                subprocess.run(["calibredb", "--library-path=" + library_folder, "add_custom_column", "embedding", "Embedding", "text"], check=True, capture_output=True)
+                subprocess.run(
+                    ["calibredb", "--library-path=" + library_folder, 
+                     "add_custom_column", "embedding", "Embedding", "text"], 
+                    check=True, capture_output=True
+                )
         except:
+            # Silently handle any errors (e.g., permission issues, Calibre not found)
             pass
     
     def __init__(self, title='Calibre', mediator=None, library_folder=None, export_folder=None):
-        """Initialize Calibre instance."""
-        # attributes and super constructor
+        """Initialize the Calibre library manager.
+        
+        Performs comprehensive setup including:
+        - Calibre installation verification
+        - Library existence checking
+        - Sample library creation (if enabled)
+        - Export folder creation
+        - Custom column setup
+        - Book list loading
+        
+        Args:
+            title (str): Display title for the widget. Defaults to 'Calibre'.
+            mediator: Mediator object for communication coordination
+            library_folder (str, optional): Override default library path
+            export_folder (str, optional): Override default export path
+            
+        Raises:
+            Communicates errors through mediator events rather than exceptions:
+            - RAGFOOD_ERROR_CALIBRENOTFOUND: Calibre not installed
+            - RAGFOOD_ERROR_LIBNOTFOUND: Library not found and auto-creation disabled
+            - RAGFOOD_OK: Successful initialization
+        """
+        # Initialize parent Colleague class
         super().__init__(mediator)
         self.title = title
+        
+        # Override default paths if provided
         if library_folder:
             Calibre.calibre_library_folder = library_folder
         if export_folder:
             Calibre.export_pdf_to_folder = export_folder
         
-        # check calibredb exists
+        # Verify Calibre installation by checking calibredb command
         try:
             subprocess.run(["calibredb", "--version"], check=True, capture_output=True, text=True)
-            test_ok = True
+            calibre_available = True
         except (subprocess.CalledProcessError, FileNotFoundError):
-            test_ok = False
+            calibre_available = False
         
-        if test_ok:
-            # check calibre_library exists
-            test_ok = os.path.exists(os.path.expanduser(Calibre.calibre_library_folder+'/.calnotes'))
-            if test_ok:
-                # export folder
+        if calibre_available:
+            # Check if Calibre library exists (look for .calnotes directory)
+            library_exists = os.path.exists(os.path.expanduser(Calibre.calibre_library_folder + '/.calnotes'))
+            
+            if library_exists:
+                # Create export folder if it doesn't exist
                 os.makedirs(os.path.expanduser(Calibre.export_pdf_to_folder), exist_ok=True)
-                # create custom column embedding if not exists
+                
+                # Ensure embedding column exists in the library
                 Calibre.create_column_embedding(Calibre.calibre_library_folder)
-            # no library
             else:
+                # Library doesn't exist
                 if Calibre.create_sample_library_with_4_books_if_library_folder_not_exists:
+                    # Auto-create sample library for testing
                     Calibre.create_library_with_4_books()
                     Calibre.create_column_embedding(Calibre.calibre_library_folder)
                 else:
-                    # i don't like exceptions
+                    # Report library not found error
                     self.changed('OnCalibreCreated', RAGFOOD_ERROR_LIBNOTFOUND)
+                    return
             
-            # tell mediator
+            # Notify successful initialization
             self.changed('OnCalibreCreated', RAGFOOD_OK)
         else:
+            # Calibre not found on system
             self.changed('OnCalibreCreated', RAGFOOD_ERROR_CALIBRENOTFOUND)
+            return
         
-        # get books
+        # Load the book list from the library
         self.loadBooklist()
         
-        # draw head line
+        # Create the display widget
         self.buildInfoView()
     
     def buildInfoView(self):
-        """Build the info widget."""
-        # widgets
-        cyanbox = lambda t, c: "<td align=center>"+t+"</td><td align='center'><p style='background-color:#B0E0E6'>&nbsp;&nbsp;"+c+"&nbsp;&nbsp;</p></td>"
-        hm = f"""<table width='100%'><tr><td ><font size=+2 color=#005F6A><b><p>{self.title}</b></font></td><td align=right><table><tr>"""
-        hm += cyanbox('Books', str(len(self.book_list))) + cyanbox('Folder', Calibre.calibre_library_folder) + cyanbox('Export', Calibre.export_pdf_to_folder)
-        hm += """</tr></table></td></tr></table>"""
-        self.widget = HTML(hm, layout={'width': 'auto'})
+        """Build the HTML widget displaying library information.
+        
+        Creates a formatted table showing:
+        - Library title
+        - Number of books (PDF format only)
+        - Library folder path
+        - Export folder path
+        
+        The widget uses a cyan color scheme consistent with Ragfood's design.
+        """
+        # Helper function for creating styled info boxes
+        cyanbox = lambda t, c: ("<td align=center>" + t + "</td>" + 
+                                "<td align='center'><p style='background-color:#B0E0E6'>" + 
+                                "&nbsp;&nbsp;" + c + "&nbsp;&nbsp;</p></td>")
+        
+        # Build HTML table with library information
+        html_content = f"""<table width='100%'><tr>
+            <td><font size=+2 color=#005F6A><b><p>{self.title}</b></font></td>
+            <td align=right><table><tr>"""
+        
+        # Add information boxes
+        html_content += cyanbox('Books', str(len(self.book_list)))
+        html_content += cyanbox('Folder', Calibre.calibre_library_folder)
+        html_content += cyanbox('Export', Calibre.export_pdf_to_folder)
+        html_content += """</tr></table></td></tr></table>"""
+        
+        # Create the widget
+        self.widget = HTML(html_content, layout={'width': 'auto'})
     
     def loadBooklist(self):
-        """Load the book list from Calibre library."""
-        # get booklist
-        asFileName = lambda s: re.sub(r'[^a-z0-9_.]+', '', re.sub(r'[\s]+', '_', s.lower()))
-        listcmd_output = subprocess.run(["calibredb", "--library-path=" + Calibre.calibre_library_folder, "list", "--fields", "title,authors,formats,*embedding", "--for-machine"], check=True, capture_output=True, text=True).stdout
+        """Load and process the book list from the Calibre library.
+        
+        Performs the following operations:
+        1. Retrieves book metadata using calibredb
+        2. Filters books to include only PDF format
+        3. Generates safe filenames from book titles
+        4. Initializes embedding column values
+        
+        Updates:
+            self.book_list (list): List of book dictionaries with metadata
+                Each book dict includes: id, title, authors, formats, filename, embedding
+        """
+        # Helper function to create safe filenames from titles
+        def asFileName(s):
+            """Convert title string to safe filename.
+            
+            Args:
+                s (str): Original title string
+                
+            Returns:
+                str: Safe filename with only alphanumeric chars, dots, underscores
+            """
+            # Replace spaces with underscores, remove special chars, convert to lowercase
+            return re.sub(r'[^a-z0-9_.]+', '', re.sub(r'[\s]+', '_', s.lower()))
+        
+        # Get book list with metadata from Calibre
+        listcmd_output = subprocess.run([
+            "calibredb", "--library-path=" + Calibre.calibre_library_folder, 
+            "list", "--fields", "title,authors,formats,*embedding", "--for-machine"
+        ], check=True, capture_output=True, text=True).stdout
+        
+        # Parse JSON output
         self.book_list = json.loads(listcmd_output)
         
-        # filter: only pdf format
-        self.book_list = [book for book in self.book_list if len(['x' for f in book['formats'] if f.split('.')[-1]=='pdf']) > 0]
+        # Filter to include only books with PDF format
+        self.book_list = [
+            book for book in self.book_list 
+            if any(fmt.split('.')[-1] == 'pdf' for fmt in book['formats'])
+        ]
         
-        # init embedding collumn and add filename
+        # Process each book: add filename and initialize embedding
         for book in self.book_list:
-            # filename
+            # Generate safe filename from title
             book['filename'] = asFileName(book['title']) + '.pdf'
-            # init embedding value
-            if not '*embedding' in book:
+            
+            # Initialize embedding field if not present
+            if '*embedding' not in book:
                 book['embedding'] = None
     
     def export(self, calibre_ids, export_folder=None):
-        """Export books by Calibre IDs."""
-        # create filename from title
-        asFileName = lambda s: re.sub(r'[^a-z0-9_.]+', '', re.sub(r'[\s]+', '_', s.lower()))
+        """Export books from Calibre library by their IDs.
         
-        # new exportfolder if passed
+        Exports both PDF files and OPF metadata files for the specified books.
+        Files are renamed using safe filenames generated from book titles.
+        
+        Args:
+            calibre_ids (list): List of Calibre book IDs to export
+            export_folder (str, optional): Override default export folder
+            
+        Events:
+            Communicates results through mediator events:
+            - OnCalibreNoValidCalibreID: Invalid or empty ID list
+            - OnCalibreExport: Successful export with file paths
+            
+        Note:
+            Always exports both PDF and OPF files, even if they already exist.
+            Uses calibredb export command with custom templates.
+        """
+        # Helper function for safe filename generation
+        def asFileName(s):
+            return re.sub(r'[^a-z0-9_.]+', '', re.sub(r'[\s]+', '_', s.lower()))
+        
+        # Determine export folder
         if not export_folder:
             export_folder = os.path.expanduser(Calibre.export_pdf_to_folder)
         else:
             Calibre.export_pdf_to_folder = os.path.expanduser(export_folder)
         
-        # get valid ids
-        valid_ids_output = subprocess.run(["calibredb", "list", "--library-path=" + Calibre.calibre_library_folder, "-f", "id"], check=True, capture_output=True, text=True).stdout.splitlines()
+        # Get list of valid book IDs from library
+        valid_ids_output = subprocess.run([
+            "calibredb", "list", "--library-path=" + Calibre.calibre_library_folder, "-f", "id"
+        ], check=True, capture_output=True, text=True).stdout.splitlines()
+        
         valid_ids = valid_ids_output[1:]  # Skip header line
         
-        # check if id list empty
+        # Check if ID list is empty
         if not calibre_ids:
-            self.changed('OnCalibreNoValidCalibreID', RAGFOOD_ERROR_CALIBRE_ID_UNKNOWN, calibre_ids, valid_ids=valid_ids)
-        else:
-            # for every calibre_id
-            for calibre_id in calibre_ids:
-                # check valid
-                if not str(calibre_id) in valid_ids:
-                    self.changed('OnCalibreNoValidCalibreID', RAGFOOD_ERROR_CALIBRE_ID_UNKNOWN, calibre_id, valid_ids=valid_ids)
-                else:
-                    # only if not exists
-                    filename = self.getPathByID(calibre_id)
-                    
-                    if not os.path.exists(filename.replace('.pdf', '.opf')) or True:
-                        # export pdf and rename
-                        cmd = ["calibredb", "export", "--library-path=" + Calibre.calibre_library_folder, "--template={id} ",
-                               "--dont-save-cover", "--to-dir=" + export_folder, str(calibre_id)]
-                        subprocess.run(cmd, check=True)
-                        subprocess.run(["mv", f"{export_folder}/{calibre_id}.pdf", f"{self.getPathByID(calibre_id)}"])
-                        subprocess.run(["mv", f"{export_folder}/{calibre_id}.opf", f"{self.getPathByID(calibre_id).replace('.pdf', '.opf')}"])
-                    
-                    # export ok - trigger event even if files exists
-                    self.changed('OnCalibreExport', RAGFOOD_OK, calibre_id,
-                                library_path=Calibre.calibre_library_folder,
-                                export_path=export_folder,
-                                files=[self.getPathByID(calibre_id), self.getPathByID(calibre_id).replace('.pdf', '.opf')])
+            self.changed('OnCalibreNoValidCalibreID', RAGFOOD_ERROR_CALIBRE_ID_UNKNOWN, 
+                        calibre_ids, valid_ids=valid_ids)
+            return
+        
+        # Process each requested book ID
+        for calibre_id in calibre_ids:
+            # Validate the book ID
+            if str(calibre_id) not in valid_ids:
+                self.changed('OnCalibreNoValidCalibreID', RAGFOOD_ERROR_CALIBRE_ID_UNKNOWN, 
+                            calibre_id, valid_ids=valid_ids)
+                continue
+            
+            # Get target filename for this book
+            target_filename = self.getPathByID(calibre_id)
+            
+            # Export files (always export, even if files exist)
+            if not os.path.exists(target_filename.replace('.pdf', '.opf')) or True:
+                # Export using calibredb with ID-based template
+                export_cmd = [
+                    "calibredb", "export", 
+                    "--library-path=" + Calibre.calibre_library_folder,
+                    "--template={id} ",  # Use ID as temporary filename
+                    "--dont-save-cover",  # Skip cover image
+                    "--to-dir=" + export_folder, 
+                    str(calibre_id)
+                ]
+                subprocess.run(export_cmd, check=True)
+                
+                # Rename exported files to use book title-based names
+                subprocess.run(["mv", f"{export_folder}/{calibre_id}.pdf", target_filename])
+                subprocess.run(["mv", f"{export_folder}/{calibre_id}.opf", 
+                               target_filename.replace('.pdf', '.opf')])
+            
+            # Notify successful export
+            self.changed('OnCalibreExport', RAGFOOD_OK, calibre_id,
+                        library_path=Calibre.calibre_library_folder,
+                        export_path=export_folder,
+                        files=[target_filename, target_filename.replace('.pdf', '.opf')])
     
     def getPathByID(self, calibre_id):
-        """Get file path by Calibre ID."""
-        # get path
+        """Get the full file path for a book by its Calibre ID.
+        
+        Args:
+            calibre_id (int): The Calibre book ID
+            
+        Returns:
+            str: Full path to the PDF file, or empty string if ID not found
+            
+        Note:
+            Uses the safe filename generated from the book title.
+        """
+        # Search for book with matching ID
         for book in self.book_list:
             if book['id'] == calibre_id:
-                return os.path.expanduser(Calibre.export_pdf_to_folder+'/'+book['filename'])
+                return os.path.expanduser(Calibre.export_pdf_to_folder + '/' + book['filename'])
+        
+        # ID not found
         return ''

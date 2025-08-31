@@ -7,22 +7,69 @@ __all__ = ['Colleague', 'Mediator']
 
 # %% ../nbs/01_Mediator.ipynb 3
 class Colleague:
-    """Base class for colleagues in the mediator pattern."""
+    """Base class for colleagues in the mediator pattern.
+    
+    Colleagues are objects that communicate with each other through a mediator
+    rather than directly. This promotes loose coupling and centralized
+    communication control.
+    
+    Attributes:
+        mediator: The mediator object that handles communication
+    """
     
     def __init__(self, mediator):
+        """Initialize a colleague with a reference to its mediator.
+        
+        Args:
+            mediator: The mediator object that will handle communications
+        """
         self.mediator = mediator
     
     def changed(self, event, state, *argc, **argv):
-        """Notify the mediator of a change."""
+        """Notify the mediator of a change in this colleague.
+        
+        This method should be called whenever the colleague's state changes
+        or when it needs to communicate with other colleagues.
+        
+        Args:
+            event (str): The type of event that occurred
+            state: The current state or state change information
+            *argc: Additional positional arguments
+            **argv: Additional keyword arguments
+        """
         if self.mediator:
+            # Delegate communication to the mediator
             self.mediator.notify(self, event, state, *argc, **argv)
         else:
+            # Fallback: print debug info if no mediator is available
             print('<<no mediator>>', event, state, argc, argv)
 
 # %% ../nbs/01_Mediator.ipynb 4
 class Mediator:
-    """Base mediator class that coordinates communication between colleagues."""
+    """Base mediator class that coordinates communication between colleagues.
+    
+    The mediator pattern defines how a set of objects interact with each other.
+    Instead of objects communicating directly, they communicate through the
+    mediator, which handles the interaction logic.
+    
+    This base class must be subclassed to implement specific mediation logic.
+    """
     
     def notify(self, colleague, event, state, *argc, **argv):
-        """Handle notifications from colleagues."""
+        """Handle notifications from colleagues.
+        
+        This method is called when a colleague reports a state change or event.
+        Subclasses must implement this method to define the specific mediation
+        logic for their use case.
+        
+        Args:
+            colleague: The colleague object that sent the notification
+            event (str): The type of event that occurred
+            state: The current state or state change information
+            *argc: Additional positional arguments from the colleague
+            **argv: Additional keyword arguments from the colleague
+            
+        Raises:
+            NotImplementedError: This method must be implemented by subclasses
+        """
         raise NotImplementedError

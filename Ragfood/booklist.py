@@ -14,59 +14,188 @@ from .states import *
 
 # %% ../nbs/04_Booklist.ipynb 4
 class BooklistItem(Selectable):
-    """Individual book item in the booklist."""
+    """Individual book item in the booklist widget.
+    
+    Represents a single book from the Calibre library as a selectable item.
+    Extends the Selectable class to provide book-specific functionality
+    including title display and embedding status indication.
+    
+    Attributes:
+        book (dict): Book metadata from Calibre library
+        item (Label): Widget displaying the book title and status
+    """
     
     def setInitState(self):
-        """Set title and embedding-icon"""
+        """Initialize the book item's display state.
+        
+        Creates a Label widget to display the book title and embedding status.
+        Called automatically during Selectable initialization.
+        """
+        # Create label widget for book display
         self.item = Label()
+        
+        # Update display with current book information
         self.refresh()
+        
+        # Add the label to the selectable widget
         self.setItemWidget(self.item)
     
     def refresh(self):
-        """Refresh the display with current book info."""
+        """Refresh the display with current book information.
+        
+        Updates the label to show:
+        - Book title
+        - Embedding status (📜 icon if embeddings are available)
+        
+        This method can be called to update the display after
+        book metadata changes (e.g., after embedding generation).
+        """
+        # Show scroll icon if book has embedding data
         icon = '📜' if '*embedding' in self.book else ''
+        
+        # Update label with icon and title
         self.item.value = f"{icon}{self.book['title']}"
     
     def __init__(self, book, books, selector=None, behave='radio'):
-        """Initialize the BooklistItem with given parameters."""
-        # attributes
+        """Initialize a BooklistItem.
+        
+        Args:
+            book (dict): Book metadata dictionary from Calibre
+            books (list): List to store all BooklistItem instances
+            selector (callable, optional): Callback for selection events
+            behave (str): Selection behavior ('radio', 'multi', or 'radiox')
+                Defaults to 'radio' for single selection
+        """
+        # Store book metadata
         self.book = book
         
-        # states
+        # Initialize parent Selectable class
         super().__init__(books, behave, selector)
 
 # %% ../nbs/04_Booklist.ipynb 5
 class Booklist(Colleague):
-    """Provides a selectable list of calibre books from the given library."""
+    """Selectable list widget for Calibre books.
     
-    def __init__(self, books, heightListArea=600, layout={'width': '300px', 'border': '1px solid', 'height': '100%'}, mediator=None, behave='multi'):
-        """Initialize the Booklist widget."""
-        # attributes and super constructor
-        self.books, self.selections, self.heightListArea, self.widget = books, [], heightListArea, VBox(layout=layout)
+    Provides a scrollable, selectable list of books from a Calibre library.
+    Supports multiple selection behaviors and integrates with the mediator
+    pattern to communicate selection events to other components.
+    
+    Features:
+    - Scrollable list with configurable height
+    - Multiple selection behaviors (radio, multi, radiox)
+    - Visual indication of books with embeddings
+    - Selection event communication via mediator
+    - Customizable layout and styling
+    
+    Attributes:
+        books (list): List of book metadata dictionaries
+        selections (list): List of currently selected item indices
+        heightListArea (int): Height of the scrollable list area in pixels
+        widget (VBox): Main container widget
+        booklistItems (list): List of BooklistItem instances
+        booklistWidgets (list): List for storing selectable widgets
+    """
+    
+    def __init__(self, books, heightListArea=600, 
+                 layout={'width': '300px', 'border': '1px solid', 'height': '100%'}, 
+                 mediator=None, behave='multi'):
+        """Initialize the Booklist widget.
+        
+        Creates a scrollable list of selectable book items with the specified
+        layout and behavior. Each book is represented as a BooklistItem with
+        title and embedding status display.
+        
+        Args:
+            books (list): List of book metadata dictionaries from Calibre
+            heightListArea (int): Height of scrollable area in pixels. Defaults to 600.
+            layout (dict): CSS-style layout properties for the main container.
+                Defaults to 300px width with border.
+            mediator: Mediator object for event communication
+            behave (str): Selection behavior for all items. Options:
+                - 'multi': Multiple selection (default)
+                - 'radio': Single selection
+                - 'radiox': Toggleable single selection
+        """
+        # Initialize core attributes
+        self.books = books
+        self.selections = []  # Track selected item indices
+        self.heightListArea = heightListArea
+        
+        # Create main container widget
+        self.widget = VBox(layout=layout)
+        
+        # Initialize parent Colleague class for mediator communication
         super().__init__(mediator)
         
-        # widgets
-        self.list_inner_vb = VBox(layout={'height': f'{self.heightListArea}px', 'width': '100%', 'overflow': 'auto'})
-        self.list_outer_bx = Box(children=[self.list_inner_vb], layout={'width': '100%', 'overflow': 'auto'})
+        # Create scrollable list container
+        self.list_inner_vb = VBox(layout={
+            'height': f'{self.heightListArea}px', 
+            'width': '100%', 
+            'overflow': 'auto'  # Enable scrolling
+        })
+        
+        # Wrap inner container in outer box for additional layout control
+        self.list_outer_bx = Box(
+            children=[self.list_inner_vb], 
+            layout={'width': '100%', 'overflow': 'auto'}
+        )
+        
+        # Add list container to main widget
         self.widget.children = [self.list_outer_bx]
         
-        # create items for ids
-        self.booklistWidgets = []
-        self.booklistItems = [BooklistItem(book=book,
-                                          books=self.booklistWidgets,
-                                          selector=self.selector,
-                                          behave=behave) for book in self.books]
-        self.list_inner_vb.children = [booklistItem.widget for booklistItem in self.booklistItems]
+        # Create BooklistItem instances for each book
+        self.booklistWidgets = []  # Storage for selectable widgets
+        
+        self.booklistItems = [
+            BooklistItem(
+                book=book,
+                books=self.booklistWidgets,  # Shared list for selection coordination
+                selector=self.selector,      # Selection callback
+                behave=behave               # Selection behavior
+            ) for book in self.books
+        ]
+        
+        # Add all book item widgets to the scrollable container
+        self.list_inner_vb.children = [item.widget for item in self.booklistItems]
     
     def selector(self, selections, lastSelect):
-        """Handle book selection events."""
-        self.selections, self.lastSelect = selections, lastSelect
-        self.changed('OnBooklistBookSelected',
-                    RAGFOOD_OK,
-                    positon_list=selections,
-                    last_select=lastSelect,
-                    calibre_id=self.books[lastSelect]['id'])
+        """Handle book selection events from BooklistItems.
+        
+        Called whenever a book is selected or deselected. Updates internal
+        state and notifies the mediator of the selection change.
+        
+        Args:
+            selections (list): List of selected item indices
+            lastSelect (int): Index of the most recently selected item
+            
+        Events:
+            Sends 'OnBooklistBookSelected' event to mediator with:
+            - RAGFOOD_OK status
+            - position_list: List of selected indices
+            - last_select: Most recent selection index
+            - calibre_id: Calibre ID of the last selected book
+        """
+        # Update internal selection state
+        self.selections = selections
+        self.lastSelect = lastSelect
+        
+        # Notify mediator of selection change
+        self.changed(
+            'OnBooklistBookSelected',
+            RAGFOOD_OK,
+            positon_list=selections,  # Note: typo preserved for compatibility
+            last_select=lastSelect,
+            calibre_id=self.books[lastSelect]['id']  # Calibre book ID
+        )
     
     def getSelectedBooks(self):
-        """Get list of selected book IDs."""
+        """Get list of Calibre IDs for currently selected books.
+        
+        Returns:
+            list: List of Calibre book IDs (integers) for selected books
+            
+        Example:
+            >>> booklist.getSelectedBooks()
+            [1, 3, 7]  # Calibre IDs of selected books
+        """
         return [self.booklistItems[s].book['id'] for s in self.selections]

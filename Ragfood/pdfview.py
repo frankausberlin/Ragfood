@@ -15,36 +15,126 @@ from .states import *
 
 # %% ../nbs/05_PDFView.ipynb 4
 class PDFView(Colleague):
-    """Preview function for PDF files."""
+    """PDF preview widget with thumbnail navigation.
+    
+    Provides a comprehensive PDF viewing interface that displays document
+    metadata and generates thumbnail previews of PDF pages. Supports
+    navigation through pages and integrates with the mediator pattern
+    for event communication.
+    
+    Features:
+    - PDF metadata extraction (title, author, page count)
+    - Thumbnail generation with configurable DPI
+    - Page navigation (forward/backward)
+    - Error handling for missing files and metadata issues
+    - Responsive layout with scrollable thumbnail area
+    
+    Dependencies:
+    - PyPDF2: For PDF metadata extraction
+    - pdf2image: For thumbnail generation
+    - poppler-utils: Required by pdf2image (system dependency)
+    
+    Attributes:
+        pdf_title (str): Title of the current PDF document
+        pdf_path (str): File path to the current PDF
+        num_pages (int): Total number of pages in the PDF
+        pdf_author (str): Author(s) of the PDF document
+        thumbnails (list): List of PIL Image objects for current page range
+        first_page (int): First page number currently displayed
+        widget (VBox): Main container widget
+    """
     
     def __init__(self, mediator=None):
-        """Initialize PDFView widget."""
-        # attributes and super constructor
-        super().__init__(mediator)
-        self.pdf_title, self.pdf_path, self.num_pages, self.pdf_author, self.thumbnails = '', None, 0, '', []
+        """Initialize the PDFView widget.
         
-        # widgets
+        Creates the widget layout with information display area,
+        thumbnail container, and navigation buttons. Sets up event
+        handlers for navigation controls.
+        
+        Args:
+            mediator: Mediator object for event communication
+            
+        Events:
+            Sends 'OnPDFViewCreated' with RAGFOOD_OK status upon initialization
+        """
+        # Initialize parent Colleague class
+        super().__init__(mediator)
+        
+        # Initialize PDF document attributes
+        self.pdf_title = ''        # Document title from metadata
+        self.pdf_path = None       # Path to current PDF file
+        self.num_pages = 0         # Total page count
+        self.pdf_author = ''       # Author information
+        self.thumbnails = []       # Current thumbnail images
+        self.first_page = 1        # First page in current view
+        
+        # Create widget components
+        
+        # Information display area (title, author, page count)
         self.info_hm = HTML()
-        self.thumbs_hb = HBox(layout=Layout(width='100%', height='450px', overflow='auto'))
-        self.thumbNext_bu = Button(description='>>>', layout={'width': 'auto'}, disabled=True)
-        self.thumbBack_bu = Button(description='<<<', layout={'width': 'auto'}, disabled=True)
-        self.widget = VBox(children=[self.info_hm, self.thumbs_hb, HBox(children=[self.thumbBack_bu, self.thumbNext_bu])])
+        
+        # Scrollable thumbnail container
+        self.thumbs_hb = HBox(layout=Layout(
+            width='100%', 
+            height='450px', 
+            overflow='auto'  # Enable horizontal scrolling
+        ))
+        
+        # Navigation buttons
+        self.thumbNext_bu = Button(
+            description='>>>', 
+            layout={'width': 'auto'}, 
+            disabled=True  # Disabled until PDF is loaded
+        )
+        self.thumbBack_bu = Button(
+            description='<<<', 
+            layout={'width': 'auto'}, 
+            disabled=True  # Disabled until PDF is loaded
+        )
+        
+        # Assemble main widget layout
+        self.widget = VBox(children=[
+            self.info_hm,                                    # Document info
+            self.thumbs_hb,                                  # Thumbnail area
+            HBox(children=[self.thumbBack_bu, self.thumbNext_bu])  # Navigation
+        ])
+        
+        # Initialize display with empty state
         self.displayInfo()
+        
+        # Notify mediator of successful creation
         self.changed('OnPDFViewCreated', RAGFOOD_OK)
         
-        # events
+        # Bind navigation event handlers
         self.thumbNext_bu.on_click(self.onThumbNavigate)
         self.thumbBack_bu.on_click(self.onThumbNavigate)
     
     def onThumbNavigate(self, b):
-        """Handle thumbnail navigation."""
+        """Handle thumbnail navigation button clicks.
+        
+        Moves the thumbnail view forward or backward by 5 pages
+        based on which button was clicked.
+        
+        Args:
+            b (Button): The button widget that was clicked
+        """
         if b.description == ">>>":
-            self.display_thumbnails(first_page=self.first_page+5)
+            # Move forward 5 pages
+            self.display_thumbnails(first_page=self.first_page + 5)
         elif b.description == "<<<":
-            self.display_thumbnails(first_page=self.first_page-5)
+            # Move backward 5 pages
+            self.display_thumbnails(first_page=self.first_page - 5)
     
     def displayInfo(self):
-        """Display PDF information."""
+        """Update the document information display.
+        
+        Creates an HTML-formatted display showing:
+        - Document title (with 📄 icon)
+        - Page count (with 📊 icon)
+        - Author information (with ✍️ icon)
+        
+        Uses a light blue background for visual consistency.
+        """
         self.info_hm.value = f"""
         <div style="background-color: #f0f8ff; padding: 1px"><hr>
           <p><strong>📄 Document:</strong> {self.pdf_title}</p>
@@ -52,80 +142,148 @@ class PDFView(Colleague):
         </div>"""
     
     def setPDF(self, path):
-        """Set PDF file to display."""
+        """Load and display a PDF file.
+        
+        Performs comprehensive PDF loading including:
+        1. File existence validation
+        2. Metadata extraction (title, author, page count)
+        3. Thumbnail generation
+        4. Error handling and fallback values
+        
+        Args:
+            path (str): File system path to the PDF file
+            
+        Events:
+            - OnPDFViewError: If file not found or metadata reading fails
+            
+        Note:
+            If metadata extraction fails, uses filename as title
+            and "Unknown Author" as author, but continues with
+            thumbnail generation.
+        """
         self.pdf_path = path
         
-        # check path exists
+        # Validate file existence
         if not os.path.exists(path):
-            self.changed('OnPDFViewError', RAGFOOD_PDF_NOT_AVAILABLE, f"PDF file not found: {path}")
+            self.changed('OnPDFViewError', RAGFOOD_PDF_NOT_AVAILABLE, 
+                        f"PDF file not found: {path}")
             return
         
-        # Extract metadata from PDF file
+        # Extract PDF metadata
         try:
             with open(path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 
-                # Number of pages
+                # Get total page count
                 self.num_pages = len(pdf_reader.pages)
                 
-                # Extract metadata
+                # Extract document metadata
                 if pdf_reader.metadata:
-                    self.pdf_title = pdf_reader.metadata.title if pdf_reader.metadata.title else Path(path).stem
-                    self.pdf_author = pdf_reader.metadata.author if pdf_reader.metadata.author else 'Unknown Author'
+                    # Use metadata title or fallback to filename
+                    self.pdf_title = (pdf_reader.metadata.title 
+                                    if pdf_reader.metadata.title 
+                                    else Path(path).stem)
+                    
+                    # Use metadata author or fallback to unknown
+                    self.pdf_author = (pdf_reader.metadata.author 
+                                     if pdf_reader.metadata.author 
+                                     else 'Unknown Author')
+                else:
+                    # No metadata available, use filename
+                    self.pdf_title = Path(path).stem
+                    self.pdf_author = 'Unknown Author'
             
-            # thumbnails
+            # Generate thumbnail previews
             self.display_thumbnails()
             
         except Exception as e:
+            # Handle metadata reading errors gracefully
             self.pdf_title = Path(path).stem
             self.pdf_author = "Unknown Author"
-            self.changed('OnPDFViewError', RAGFOOD_PDF_ERROR_READING_METADATA, f"Error reading metadata: {e}")
+            self.changed('OnPDFViewError', RAGFOOD_PDF_ERROR_READING_METADATA, 
+                        f"Error reading metadata: {e}")
         
         finally:
+            # Always update the display, even if metadata extraction failed
             self.displayInfo()
     
     def display_thumbnails(self, num_thumbs=5, first_page=1, dpi=150):
-        """Generate thumbnail images from PDF"""
+        """Generate and display PDF page thumbnails.
+        
+        Converts PDF pages to images and creates thumbnail widgets
+        for display. Handles page range validation and provides
+        navigation controls.
+        
+        Args:
+            num_thumbs (int): Number of thumbnails to display. Defaults to 5.
+            first_page (int): Starting page number (1-based). Defaults to 1.
+            dpi (int): Resolution for thumbnail generation. Defaults to 150.
+                Higher values produce better quality but larger images.
+                
+        Events:
+            OnPDFViewError: If thumbnail generation fails
+            
+        Note:
+            Automatically adjusts page range if it exceeds document bounds.
+            Thumbnails are resized to max 300x400 pixels for display.
+        """
         try:
-            # Convert pages to images
+            # Validate and adjust page range
             if first_page < 1 or first_page > self.num_pages:
                 first_page = 1
+            
+            # Adjust number of thumbnails if it exceeds available pages
             if first_page + num_thumbs > self.num_pages:
-                num_thumbs = self.num_pages - first_page
+                num_thumbs = self.num_pages - first_page + 1
+            
+            # Store current page position for navigation
             self.first_page = first_page
             
-            self.thumbnails = convert_from_path(self.pdf_path, dpi=dpi, first_page=first_page, last_page=min((first_page-1)+num_thumbs, self.num_pages))
+            # Convert PDF pages to images using pdf2image
+            self.thumbnails = convert_from_path(
+                self.pdf_path, 
+                dpi=dpi, 
+                first_page=first_page, 
+                last_page=min(first_page + num_thumbs - 1, self.num_pages)
+            )
             
         except Exception as e:
+            # Handle thumbnail generation errors
             self.thumbnails = []
-            self.changed('OnPDFViewError', RAGFOOD_PDF_NOT_AVAILABLE, f"Error generating thumbnails: {e}")
-            return []
+            self.changed('OnPDFViewError', RAGFOOD_PDF_NOT_AVAILABLE, 
+                        f"Error generating thumbnails: {e}")
+            return
         
-        # Create thumbnail widgets
+        # Create thumbnail widgets for display
         thumbnail_widgets = []
         
         for i, img in enumerate(self.thumbnails):
-            # Convert PIL image to bytes for display
+            # Convert PIL image to bytes for widget display
             img_bytes = io.BytesIO()
-            # Resize for display
+            
+            # Create a copy and resize for display (preserve original)
             display_img = img.copy()
-            display_img.thumbnail((300, 400))
+            display_img.thumbnail((300, 400))  # Max size for display
             display_img.save(img_bytes, format='PNG')
             
-            # Create image widget
-            img_widget = IPyImage(value=img_bytes.getvalue(), format='png',
-                                 layout={'margin': '3px', 'border': '1px solid #ccc'})
+            # Create image widget with border styling
+            img_widget = IPyImage(
+                value=img_bytes.getvalue(), 
+                format='png',
+                layout={'margin': '3px', 'border': '1px solid #ccc'}
+            )
             
-            # Create label
-            label_widget = HTML(f"<center><small>Page {i+first_page}</small></center>")
+            # Create page number label
+            page_number = i + first_page
+            label_widget = HTML(f"<center><small>Page {page_number}</small></center>")
             
-            # Combine in VBox
+            # Combine image and label in vertical layout
             page_widget = VBox([img_widget, label_widget])
             thumbnail_widgets.append(page_widget)
         
-        # Display in horizontal layout
+        # Update thumbnail display area
         self.thumbs_hb.children = tuple(thumbnail_widgets)
         
-        # enable navigation
-        self.thumbNext_bu.disabled = False
-        self.thumbBack_bu.disabled = False
+        # Enable navigation buttons (now that we have content)
+        self.thumbNext_bu.disabled = (first_page + num_thumbs > self.num_pages)
+        self.thumbBack_bu.disabled = (first_page <= 1)

@@ -5,81 +5,174 @@ __all__ = ['Selectable']
 
 # %% ../nbs/00_Selectable.ipynb 4
 class Selectable:
-    """A class representing a selectable item with customizable behavior."""
+    """A class representing a selectable item with customizable behavior.
+    
+    This class provides a mechanism for creating selectable UI elements with different
+    selection behaviors: radio (single selection), multi (multiple selection), 
+    or radiox (toggleable single selection).
+    
+    Attributes:
+        isSelected (bool): Current selection state of this item
+        items (list): List of all selectable items in the group
+        behave (str): Selection behavior ('radio', 'multi', or 'radiox')
+        bu_selector (Button): The button widget for selection
+        widget (HBox): Container widget holding the selector and item content
+        selector (callable): Optional callback function for selection events
+    """
     
     def __init__(self, items, behave, selector=None):
-        """Initializes the class with given parameters."""
+        """Initialize a new selectable item.
+        
+        Args:
+            items (list): List to store all selectable items in this group
+            behave (str): Selection behavior - 'radio', 'multi', or 'radiox'
+            selector (callable, optional): Callback function called on selection
+                with signature: selector(position_list, last_selected_index)
+        """
+        # Initialize core attributes
         self.isSelected, self.items, self.behave = False, items, behave
+        
+        # Create selector button with default styling (light blue-gray)
         self.bu_selector = Button(style={'button_color': '#99bfc3'}, layout={'width': '22px', 'height': '22px'})
+        
+        # Create container widget with selector button
         self.widget = HBox(children=[self.bu_selector], layout={'min_height': '24px', 'overflow': 'hidden'})
+        
+        # Add this instance to the items group
         self.items.append(self)
+        
+        # Bind click handler to selector button
         self.bu_selector.on_click(self.select)
+        
+        # Initialize subclass-specific state
         self.setInitState()
+        
+        # Store callback function for selection events
         self.selector = selector
 
     def doBehavior(self):
-        """Executes the selection behavior based on the specified type."""
+        """Execute the selection behavior based on the specified type.
+        
+        Handles three different selection behaviors:
+        - 'radiox': Toggleable radio button (can deselect)
+        - 'radio': Standard radio button (single selection)
+        - 'multi': Multiple selection checkbox behavior
+        
+        Updates button colors and selection states accordingly.
+        """
         self.posList, lastSelect = [], self.lastSelect()
 
         if self.behave == 'radiox':
+            # Toggleable radio: can deselect current selection
             state = self.items[lastSelect].isSelected
+            
+            # Reset all items to unselected state
             for item in self.items: 
                 item.bu_selector.style.button_color, item.isSelected = '#99bfc3', False
+            
+            # Toggle the clicked item
             if state:
+                # Was selected, now deselect (keep default color)
                 self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#99bfc3', False
             else:
+                # Was not selected, now select (dark teal color)
                 self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#005F6A', True
+            
+            # Update position list with selected items
             self.posList = [p for p in range(len(self.items)) if self.items[p].isSelected]
 
         elif self.behave == 'radio':
+            # Standard radio: only one selection allowed
+            # Reset all items to unselected
             for item in self.items: 
                 item.bu_selector.style.button_color, item.isSelected = '#99bfc3', False
+            
+            # Select only the clicked item
             self.bu_selector.style.button_color, self.isSelected, self.posList = '#005F6A', True, [lastSelect]
 
         elif self.behave == 'multi':
+            # Multiple selection: toggle individual items
             state = self.items[lastSelect].isSelected
+            
             if state:
+                # Currently selected, deselect it
                 self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#99bfc3', False
             else:
+                # Currently unselected, select it
                 self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#005F6A', True
+            
+            # Update position list with all selected items
             self.posList = [p for p in range(len(self.items)) if self.items[p].isSelected]
 
         else: 
             raise Exception('unknown behavior: '+self.behave)
 
     def setItemWidget(self, widget):
-        """Sets the widget to display for the item."""
+        """Set the widget to display for the item.
+        
+        Args:
+            widget: The widget to add to this selectable item's display
+        """
         self.itemWidget, self.widget.children = widget, (*self.widget.children, widget)
 
     def setInitState(self): 
+        """Initialize the item's state. Must be implemented by subclasses."""
         raise NotImplementedError
         
     def onSelection(self, posList): 
+        """Handle selection events. Must be implemented by subclasses.
+        
+        Args:
+            posList (list): List of selected item positions
+        """
         raise NotImplementedError
 
     def select(self, b=None):
-        """Handles the click event for the selector button."""
+        """Handle the click event for the selector button.
+        
+        This method is called when a selector button is clicked. It:
+        1. Finds which item was clicked
+        2. Updates the lastSelect tracking
+        3. Executes the appropriate selection behavior
+        4. Calls the selector callback if provided
+        
+        Args:
+            b: The button widget that was clicked (unused)
+        """
         lastSelect = -1
-        # search selected item
+        
+        # Find which item's button was clicked
         for buttonPos in range(len(self.items)):
             if self.items[buttonPos].bu_selector == self.bu_selector: 
                 break
-        # when found
+        
+        # If found, update last selection tracking
         if buttonPos < len(self.items):
-            # set isLastSelect in all selectables
+            # Clear last selection flag from all items
             for buttonPos in range(len(self.items)): 
                 self.items[buttonPos].isLastSelect = False
+            
+            # Mark this item as the last selected
             self.isLastSelect = True
-        # do selectable specific behavior
+        
+        # Execute the selection behavior
         self.doBehavior()
-        # call selector
+        
+        # Call the selector callback if provided
         if self.selector:
             self.selector(self.posList, self.lastSelect())
 
     def lastSelect(self):
+        """Get the position index of this item in the items list.
+        
+        Returns:
+            int: The position index of this item, or -1 if not found
+        """
+        # Find this item's position in the items list
         for buttonPos in range(len(self.items)):
             if self.items[buttonPos].bu_selector == self.bu_selector: 
                 break
+        
         if buttonPos < len(self.items): 
             return buttonPos
         else: 

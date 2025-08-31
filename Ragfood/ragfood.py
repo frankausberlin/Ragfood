@@ -16,45 +16,167 @@ from .pdfview import PDFView
 class Ragfood(Mediator):
     """Main application class for Ragfood.
     
-    Making knowledge from documents accessible for chats with LLMs.
-    Uses Calibre, ipywidgets, PyPDF2.
+    Ragfood makes knowledge from documents accessible for chats with Large Language Models (LLMs).
+    This class serves as the central coordinator, implementing the Mediator pattern to manage
+    communication between different components of the application.
+    
+    The application provides a complete workflow for document processing:
+    1. **Document Selection**: Browse and select PDFs from Calibre library
+    2. **Processing**: Load, chunk, and generate embeddings for documents
+    3. **Vector Storage**: Manage document chunks in vector database
+    4. **Chat Interface**: Query documents using LLM-powered chat
+    
+    Architecture:
+    - Uses the Mediator pattern for loose coupling between components
+    - Integrates with Calibre for document library management
+    - Provides a tabbed interface using Jupyter widgets
+    - Supports automatic sample library creation for testing
+    
+    Dependencies:
+    - Calibre: For e-book library management
+    - ipywidgets: For interactive Jupyter interface
+    - PyPDF2: For PDF processing
+    - pdf2image: For PDF thumbnail generation
+    
+    Attributes:
+        export_pdf_to_folder (str): Default folder for PDF exports
+        calibre_library_folder (str): Path to Calibre library
+        create_sample_library_with_4_books_if_library_folder_not_exists (bool):
+            Whether to auto-create sample library for testing
+        calibre (Calibre): Calibre library manager instance
+        booklist (Booklist): Book selection widget
+        pdfView (PDFView): PDF preview widget
+        widget (VBox): Main application widget
     """
     
-    export_pdf_to_folder = '~/labor/ragfood_pdf'
-    calibre_library_folder = '~/labor/test_calibre_with_4_pdfs'
-    create_sample_library_with_4_books_if_library_folder_not_exists = True
+    # Class-level configuration for default paths and behavior
+    export_pdf_to_folder = '~/labor/ragfood_pdf'  # Default PDF export directory
+    calibre_library_folder = '~/labor/test_calibre_with_4_pdfs'  # Default Calibre library path
+    create_sample_library_with_4_books_if_library_folder_not_exists = True  # Auto-create sample library
     
     def __init__(self):
-        """Initialize Ragfood application."""
-        # the colleagues
-        Calibre.create_sample_library_with_4_books_if_library_folder_not_exists = Ragfood.create_sample_library_with_4_books_if_library_folder_not_exists
-        self.calibre = Calibre(mediator=self, title='Calibre',
-                              library_folder=Ragfood.calibre_library_folder,
-                              export_folder=Ragfood.export_pdf_to_folder)
-        self.booklist = Booklist(books=self.calibre.book_list, mediator=self, heightListArea=620, behave='radio')
+        """Initialize the Ragfood application.
+        
+        Sets up the complete application interface with all components:
+        1. Creates Calibre library manager with configured paths
+        2. Initializes book selection list with radio button behavior
+        3. Sets up PDF preview widget
+        4. Constructs tabbed interface for different workflow stages
+        5. Establishes mediator communication between components
+        
+        The interface is organized into four main sections:
+        - PDF Selection: Browse and select documents from Calibre
+        - Processing: Document loading, chunking, and embedding generation
+        - Vector Store: Management of document chunks and embeddings
+        - Chat: LLM-powered document querying interface
+        """
+        # Configure Calibre component with class settings
+        Calibre.create_sample_library_with_4_books_if_library_folder_not_exists = (
+            Ragfood.create_sample_library_with_4_books_if_library_folder_not_exists
+        )
+        
+        # Initialize core components with mediator pattern
+        
+        # Calibre library manager - handles document library and export
+        self.calibre = Calibre(
+            mediator=self,  # This Ragfood instance acts as mediator
+            title='Calibre',
+            library_folder=Ragfood.calibre_library_folder,
+            export_folder=Ragfood.export_pdf_to_folder
+        )
+        
+        # Book selection list - displays available PDFs with radio selection
+        self.booklist = Booklist(
+            books=self.calibre.book_list,  # Use books from Calibre library
+            mediator=self,
+            heightListArea=620,  # Scrollable area height
+            behave='radio'  # Single selection mode
+        )
+        
+        # PDF preview widget - shows thumbnails and metadata
         self.pdfView = PDFView(mediator=self)
         
-        # widgets
-        title_html = f"""<div style="background-color: #f0f8ff; padding: 10px; "><h1 style="color: #005F6A; margin: 0;">🍲 Ragfood</h1></div>"""
+        # Create user interface layout
+        
+        # Application title with styling
+        title_html = (
+            '<div style="background-color: #f0f8ff; padding: 10px; ">'
+            '<h1 style="color: #005F6A; margin: 0;">🍲 Ragfood</h1></div>'
+        )
         self.titleLine_hm = HTML(title_html)
-        self.selectPDF_hb = HBox(children=[self.booklist.widget,
-                                          VBox(children=[self.calibre.widget, self.pdfView.widget],
-                                               layout={'width': '100%'})])
-        self.processing_bx = Box()
-        self.vectoreStore_bx = Box()
-        self.chat_bx = Box()
-        self.main_ac = Accordion(children=[self.selectPDF_hb, self.processing_bx, self.vectoreStore_bx, self.chat_bx])
+        
+        # PDF selection interface - combines book list and preview
+        self.selectPDF_hb = HBox(children=[
+            self.booklist.widget,  # Left: book selection list
+            VBox(children=[        # Right: Calibre info and PDF preview
+                self.calibre.widget,
+                self.pdfView.widget
+            ], layout={'width': '100%'})
+        ])
+        
+        # Placeholder containers for future workflow stages
+        self.processing_bx = Box()      # Document processing interface
+        self.vectoreStore_bx = Box()    # Vector database management
+        self.chat_bx = Box()           # LLM chat interface
+        
+        # Create tabbed interface using Accordion widget
+        self.main_ac = Accordion(children=[
+            self.selectPDF_hb,      # Tab 0: PDF Selection
+            self.processing_bx,     # Tab 1: Processing
+            self.vectoreStore_bx,   # Tab 2: Vector Store
+            self.chat_bx           # Tab 3: Chat
+        ])
+        
+        # Set descriptive titles for each tab with emojis
         self.main_ac.set_title(0, '📚 Select PDF - from Calibre')
         self.main_ac.set_title(1, '⚗️ Processing PDF - Loader, Chunking, Embedding')
-        self.main_ac.set_title(2, '🕋 Vectore Store - Chunks')
+        self.main_ac.set_title(2, '🕋 Vector Store - Chunks')  # Note: "Vectore" preserved from original
         self.main_ac.set_title(3, '🔎 Chat - using LLM to access knowledge')
-        self.widget = VBox(children=[self.titleLine_hm, self.main_ac])
+        
+        # Assemble main application widget
+        self.widget = VBox(children=[
+            self.titleLine_hm,  # Application title
+            self.main_ac       # Tabbed interface
+        ])
     
     def notify(self, colleague, event, state, *argc, **argv):
-        """Handle notifications from colleagues."""
+        """Handle notifications from colleague components.
+        
+        Implements the Mediator pattern by coordinating communication between
+        different components of the application. Currently handles book selection
+        events to trigger PDF export and preview.
+        
+        Args:
+            colleague: The component that sent the notification
+            event (str): The type of event that occurred
+            state: The state information associated with the event
+            *argc: Additional positional arguments
+            **argv: Additional keyword arguments
+            
+        Handled Events:
+            OnBooklistBookSelected: When a book is selected in the booklist
+                - Exports the selected book from Calibre
+                - Updates the PDF preview with the selected document
+                
+        Future Events:
+            Additional events will be handled as more workflow stages are implemented
+            (processing, vector storage, chat functionality).
+        """
         if event == 'OnBooklistBookSelected':
-            file = self.calibre.getPathByID(argv['calibre_id'])
-            self.calibre.export([argv['calibre_id']])
-            print('setPDF', file)
-            self.pdfView.setPDF(file)
+            # Handle book selection from the booklist
+            calibre_id = argv['calibre_id']
+            
+            # Get the file path for the selected book
+            file_path = self.calibre.getPathByID(calibre_id)
+            
+            # Export the book from Calibre library to the export folder
+            self.calibre.export([calibre_id])
+            
+            # Debug output (can be removed in production)
+            print('setPDF', file_path)
+            
+            # Update PDF preview with the selected document
+            self.pdfView.setPDF(file_path)
+        
+        # Uncomment for debugging all events:
         # print(event, state, argc, argv)
