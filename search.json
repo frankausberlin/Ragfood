@@ -1,0 +1,172 @@
+[
+  {
+    "objectID": "ragfood.html",
+    "href": "ragfood.html",
+    "title": "Ragfood",
+    "section": "",
+    "text": "source",
+    "crumbs": [
+      "Ragfood"
+    ]
+  },
+  {
+    "objectID": "ragfood.html#example-usage",
+    "href": "ragfood.html#example-usage",
+    "title": "Ragfood",
+    "section": "Example Usage",
+    "text": "Example Usage\n# Create and display the Ragfood application\nrf = Ragfood()\ndisplay(rf.widget)\nApplication Workflow:\n\n📚 Select PDF: Browse your Calibre library and select documents for processing\n\nView book list with embedding status indicators\nPreview PDF thumbnails and metadata\nSingle-click selection with automatic export\n\n⚗️ Processing PDF: (Future implementation)\n\nDocument loading and text extraction\nIntelligent chunking strategies\nEmbedding generation for semantic search\n\n🕋 Vector Store: (Future implementation)\n\nManage document chunks and embeddings\nVector database operations\nSearch and similarity functions\n\n🔎 Chat: (Future implementation)\n\nLLM-powered document querying\nContext-aware responses\nCitation and source tracking\n\n\nRequirements: - Calibre e-book management software - Python packages: ipywidgets, PyPDF2, pdf2image - System dependency: poppler-utils (for PDF thumbnail generation)\nFeatures: - Auto-Setup: Creates sample library with 4 free academic books if no library exists - Mediator Pattern: Loose coupling between components for maintainability - Responsive UI: Jupyter widget-based interface with tabbed navigation - Error Handling: Graceful handling of missing files and system dependencies",
+    "crumbs": [
+      "Ragfood"
+    ]
+  },
+  {
+    "objectID": "booklist.html",
+    "href": "booklist.html",
+    "title": "Booklist",
+    "section": "",
+    "text": "source",
+    "crumbs": [
+      "Booklist"
+    ]
+  },
+  {
+    "objectID": "booklist.html#example-usage",
+    "href": "booklist.html#example-usage",
+    "title": "Booklist",
+    "section": "Example Usage",
+    "text": "Example Usage\nfrom Ragfood.calibre import Calibre\nfrom Ragfood.mediator import Mediator\n\nclass MiniMediator(Mediator):\n    \"\"\"Simple mediator for handling book selection events.\"\"\"\n    def notify(self, colleague, event, state, *argc, **argv):\n        print(f\"Event: {event}, State: {state}, Args: {argc}, Kwargs: {argv}\")\n\n# Create Calibre instance and load books\ncalibre = Calibre()\n\n# Create booklist with multi-selection behavior\nbooklist = Booklist(\n    books=calibre.book_list, \n    mediator=MiniMediator(), \n    heightListArea=200,\n    behave='multi'\n)\n\n# Display the booklist widget\ndisplay(booklist.widget)\n\n# Get selected book IDs\nselected_ids = booklist.getSelectedBooks()\nprint(f\"Selected books: {selected_ids}\")\nFeatures: - Visual Indicators: Books with embeddings show a 📜 icon - Selection Modes: Support for radio, multi, and radiox selection - Scrollable: Configurable height with automatic scrolling - Event Integration: Communicates selections via mediator pattern",
+    "crumbs": [
+      "Booklist"
+    ]
+  },
+  {
+    "objectID": "states.html",
+    "href": "states.html",
+    "title": "States",
+    "section": "",
+    "text": "These constants define the various states that can occur during Ragfood operations:\n\n\n\nRAGFOOD_OK (0): Operation completed successfully\n\n\n\n\n\nRAGFOOD_ERROR_CALIBRENOTFOUND (1): Calibre software not found on the system\nRAGFOOD_ERROR_LIBNOTFOUND (2): Calibre library not found or inaccessible\nRAGFOOD_ERROR_CALIBRE_ID_UNKNOWN (4): Invalid or unknown Calibre book ID provided\n\n\n\n\n\nRAGFOOD_OPF_NOT_AVAILABLE (3): OPF (Open Packaging Format) metadata file not available\nRAGFOOD_PDF_NOT_AVAILABLE (6): PDF file not available for the requested book\nRAGFOOD_PDF_ERROR_READING_METADATA (7): Error occurred while reading PDF metadata\n\n\n\n\ndef process_book(book_id):\n    \"\"\"Process a book and return appropriate state code.\"\"\"\n    try:\n        # ... processing logic ...\n        return RAGFOOD_OK\n    except CalibreNotFoundError:\n        return RAGFOOD_ERROR_CALIBRENOTFOUND\n    except BookNotFoundError:\n        return RAGFOOD_ERROR_CALIBRE_ID_UNKNOWN\n    # ... other error handling ...",
+    "crumbs": [
+      "States"
+    ]
+  },
+  {
+    "objectID": "states.html#state-constants-documentation",
+    "href": "states.html#state-constants-documentation",
+    "title": "States",
+    "section": "",
+    "text": "These constants define the various states that can occur during Ragfood operations:\n\n\n\nRAGFOOD_OK (0): Operation completed successfully\n\n\n\n\n\nRAGFOOD_ERROR_CALIBRENOTFOUND (1): Calibre software not found on the system\nRAGFOOD_ERROR_LIBNOTFOUND (2): Calibre library not found or inaccessible\nRAGFOOD_ERROR_CALIBRE_ID_UNKNOWN (4): Invalid or unknown Calibre book ID provided\n\n\n\n\n\nRAGFOOD_OPF_NOT_AVAILABLE (3): OPF (Open Packaging Format) metadata file not available\nRAGFOOD_PDF_NOT_AVAILABLE (6): PDF file not available for the requested book\nRAGFOOD_PDF_ERROR_READING_METADATA (7): Error occurred while reading PDF metadata\n\n\n\n\ndef process_book(book_id):\n    \"\"\"Process a book and return appropriate state code.\"\"\"\n    try:\n        # ... processing logic ...\n        return RAGFOOD_OK\n    except CalibreNotFoundError:\n        return RAGFOOD_ERROR_CALIBRENOTFOUND\n    except BookNotFoundError:\n        return RAGFOOD_ERROR_CALIBRE_ID_UNKNOWN\n    # ... other error handling ...",
+    "crumbs": [
+      "States"
+    ]
+  },
+  {
+    "objectID": "mediator.html",
+    "href": "mediator.html",
+    "title": "Mediator",
+    "section": "",
+    "text": "source",
+    "crumbs": [
+      "Mediator"
+    ]
+  },
+  {
+    "objectID": "mediator.html#example-usage",
+    "href": "mediator.html#example-usage",
+    "title": "Mediator",
+    "section": "Example Usage",
+    "text": "Example Usage\nHere’s a concrete example showing how to use the mediator pattern:\n\nclass ConcreteColleague(Colleague):\n    \"\"\"Example colleague implementation for demonstration.\"\"\"\n    \n    def __init__(self, mediator):\n        \"\"\"Initialize colleague and notify mediator of creation.\n        \n        Args:\n            mediator: The mediator to communicate through\n        \"\"\"\n        super().__init__(mediator)\n        # Notify mediator that this colleague was created\n        self.changed('OnColleagueCreate', 0, 'firstPositional', second='with_keywords')\n    \n    def work(self, *argc, **argv):\n        \"\"\"Perform work and notify the mediator.\n        \n        Args:\n            *argc: Positional arguments to pass to mediator\n            **argv: Keyword arguments to pass to mediator\n        \"\"\"\n        # Notify mediator about work being performed\n        self.changed('OnColleagueWork', 1, *argc, **argv)\n\nclass ConcreteMediator(Mediator):\n    \"\"\"Example mediator implementation that manages two colleagues.\"\"\"\n    \n    def __init__(self):\n        \"\"\"Initialize mediator and create colleague instances.\"\"\"\n        # Create colleagues that will communicate through this mediator\n        self.colleagueA = ConcreteColleague(self)\n        self.colleagueB = ConcreteColleague(self)\n    \n    def working(self, *argc, **argv):\n        \"\"\"Coordinate work between colleagues.\n        \n        Args:\n            *argc: Arguments to pass to colleagues\n            **argv: Keyword arguments to pass to colleagues\n        \"\"\"\n        # Trigger work in both colleagues\n        self.colleagueA.work('A')\n        self.colleagueB.work(work='second')\n    \n    def notify(self, colleague, event, state, *argc, **argv):\n        \"\"\"Handle notifications from colleagues by printing debug info.\n        \n        In a real implementation, this would contain logic to coordinate\n        between colleagues based on the events they report.\n        \n        Args:\n            colleague: The colleague that sent the notification\n            event (str): The event type\n            state: The state information\n            *argc: Additional positional arguments\n            **argv: Additional keyword arguments\n        \"\"\"\n        print(event, state, argc, argv)\n\n# Demonstrate the mediator pattern\ncm = ConcreteMediator()\ncm.working()",
+    "crumbs": [
+      "Mediator"
+    ]
+  },
+  {
+    "objectID": "selectable.html",
+    "href": "selectable.html",
+    "title": "Description",
+    "section": "",
+    "text": "Class\n\nsource\n\nSelectable\n\n Selectable (items, behave, selector=None)\n\n*A class representing a selectable item with customizable behavior.\nThis class provides a mechanism for creating selectable UI elements with different selection behaviors: radio (single selection), multi (multiple selection), or radiox (toggleable single selection).\nAttributes: isSelected (bool): Current selection state of this item items (list): List of all selectable items in the group behave (str): Selection behavior (‘radio’, ‘multi’, or ‘radiox’) bu_selector (Button): The button widget for selection widget (HBox): Container widget holding the selector and item content selector (callable): Optional callback function for selection events*",
+    "crumbs": [
+      "Description"
+    ]
+  },
+  {
+    "objectID": "calibre.html",
+    "href": "calibre.html",
+    "title": "Calibre",
+    "section": "",
+    "text": "source",
+    "crumbs": [
+      "Calibre"
+    ]
+  },
+  {
+    "objectID": "calibre.html#example-usage",
+    "href": "calibre.html#example-usage",
+    "title": "Calibre",
+    "section": "Example Usage",
+    "text": "Example Usage\n# Create a Calibre instance (requires Calibre to be installed)\ncalibre = Calibre()\n\n# Display the library information widget\ndisplay(calibre.widget)\n\n# Export specific books by ID\ncalibre.export([1, 2, 3])\nNote: This example requires Calibre to be installed on your system. If no library exists, a sample library with 4 free academic books will be created automatically.",
+    "crumbs": [
+      "Calibre"
+    ]
+  },
+  {
+    "objectID": "pdfview.html",
+    "href": "pdfview.html",
+    "title": "PDFView",
+    "section": "",
+    "text": "source",
+    "crumbs": [
+      "PDFView"
+    ]
+  },
+  {
+    "objectID": "pdfview.html#example-usage",
+    "href": "pdfview.html#example-usage",
+    "title": "PDFView",
+    "section": "Example Usage",
+    "text": "Example Usage\nimport tempfile\nimport os\n\n# Download a sample PDF for testing\ntemp_dir = tempfile.gettempdir()\nsample_pdf = f\"{temp_dir}/mathematics_for_machine_learning.pdf\"\n\n# Download if not already present\nos.system(f\"\"\"[ -f {sample_pdf} ] || curl -o {sample_pdf} https://mml-book.github.io/book/mml-book.pdf\"\"\")\n\n# Create and display PDFView widget\npdfview = PDFView()\ndisplay(pdfview.widget)\n\n# Load the PDF file\npdfview.setPDF(sample_pdf)\nFeatures: - Metadata Display: Shows document title, author, and page count - Thumbnail Navigation: Browse through pages with forward/back buttons - Responsive Layout: Scrollable thumbnail area adapts to content - Error Handling: Graceful handling of missing files and corrupt PDFs - High Quality: Configurable DPI for thumbnail generation\nRequirements: - PyPDF2: For PDF metadata extraction - pdf2image: For thumbnail generation - poppler-utils: System dependency for pdf2image (install via package manager)",
+    "crumbs": [
+      "PDFView"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Ragfood",
+    "section": "",
+    "text": "This file will become your README and also the index of your documentation.",
+    "crumbs": [
+      "Ragfood"
+    ]
+  },
+  {
+    "objectID": "index.html#developer-guide",
+    "href": "index.html#developer-guide",
+    "title": "Ragfood",
+    "section": "Developer Guide",
+    "text": "Developer Guide\nIf you are new to using nbdev here are some useful pointers to get you started.\n\nInstall Ragfood in Development mode\n# make sure Ragfood package is installed in development mode\n$ pip install -e .\n\n# make changes under nbs/ directory\n# ...\n\n# compile to have changes apply to Ragfood\n$ nbdev_prepare",
+    "crumbs": [
+      "Ragfood"
+    ]
+  },
+  {
+    "objectID": "index.html#usage",
+    "href": "index.html#usage",
+    "title": "Ragfood",
+    "section": "Usage",
+    "text": "Usage\n\nInstallation\nInstall latest from the GitHub repository:\n$ pip install git+https://github.com/frankausberlin/Ragfood.git\nor from conda\n$ conda install -c frankausberlin Ragfood\nor from pypi\n$ pip install Ragfood\n\n\nDocumentation\nDocumentation can be found hosted on this GitHub repository’s pages. Additionally you can find package manager specific guidelines on conda and pypi respectively.",
+    "crumbs": [
+      "Ragfood"
+    ]
+  },
+  {
+    "objectID": "index.html#how-to-use",
+    "href": "index.html#how-to-use",
+    "title": "Ragfood",
+    "section": "How to use",
+    "text": "How to use\nFill me in please! Don’t forget code examples:\n\n1+1\n\n2",
+    "crumbs": [
+      "Ragfood"
+    ]
+  }
+]
