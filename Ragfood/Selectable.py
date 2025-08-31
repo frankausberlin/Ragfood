@@ -3,148 +3,84 @@
 # %% auto 0
 __all__ = ['Selectable']
 
-# %% ../nbs/00_Selectable.ipynb 5
-""" Colab Code-Snippets
-It uses colab forms to make a top-level setting of the code snippet (optional)
-and give a little description. You can run the cell to execute the code snippet.
-"""
-
+# %% ../nbs/00_Selectable.ipynb 4
 class Selectable:
-  """A class representing a selectable item with customizable behavior.
-  This code snippet demonstrates the use of a custom selectable widget class
-  in a Jupyter notebook. It allows for the selection of items using either
-  radio button behavior or multi-select behavior.
+    """A class representing a selectable item with customizable behavior."""
+    
+    def __init__(self, items, behave, selector=None):
+        """Initializes the class with given parameters."""
+        self.isSelected, self.items, self.behave = False, items, behave
+        self.bu_selector = Button(style={'button_color': '#99bfc3'}, layout={'width': '22px', 'height': '22px'})
+        self.widget = HBox(children=[self.bu_selector], layout={'min_height': '24px', 'overflow': 'hidden'})
+        self.items.append(self)
+        self.bu_selector.on_click(self.select)
+        self.setInitState()
+        self.selector = selector
 
-  Attributes
-  ----------
-  * items: list
-    A list with Selectable objects.
-  * behave: str
-    The behavior type ('multi' or 'radio' or 'radiox') for selection.
-  * onSelect: function | default: None
-    A callback function triggered upon selection.
-  * widget: HBox
-    The widget representing the selectable item.
+    def doBehavior(self):
+        """Executes the selection behavior based on the specified type."""
+        self.posList, lastSelect = [], self.lastSelect()
 
-  Methods
-  -------
-  * doBehavior() | -> none
-    Executes the selection behavior based on the specified type.
-  * _onSelectorClick(b: Button) | -> none
-    Handles the click event for the selector button.
-  * setItemWidget(widget) | -> none
-    Sets the widget to display for the item.
-  * setInitState() | -> none
-    Initializes the state of the item (to be implemented in subclasses).
-  * onFirstSelect(posList) | -> none
-    Defines behavior on the first selection (to be implemented in subclasses).
+        if self.behave == 'radiox':
+            state = self.items[lastSelect].isSelected
+            for item in self.items: 
+                item.bu_selector.style.button_color, item.isSelected = '#99bfc3', False
+            if state:
+                self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#99bfc3', False
+            else:
+                self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#005F6A', True
+            self.posList = [p for p in range(len(self.items)) if self.items[p].isSelected]
 
-  Behavior
-  -------
-  * You can set the behavior to 'radio' or 'multi' (radio button or multi selection).
-  * On creation it calls the setInitState abstract function where you can build your
-    own widget (e.g. HTML-object) and register it with setItemWidget.
-  * When you select an item the abstract function onFirstSelect is called so you can
-    set your widget in a 'working' state.
-  * Every selection triggers the callback function onSelect if set.
+        elif self.behave == 'radio':
+            for item in self.items: 
+                item.bu_selector.style.button_color, item.isSelected = '#99bfc3', False
+            self.bu_selector.style.button_color, self.isSelected, self.posList = '#005F6A', True, [lastSelect]
 
-  Use cases
-  ---------
-  * Make your own class, inherit from Selectable and implement the onFirstSelect
-    and setInitState function.
-  * To react on a select you can give a listener in the super constructor call.
-  * To combine several selectable objects to a set you have to give the same list
-    on construction.
-  * Display an item with the .widget attribute.
+        elif self.behave == 'multi':
+            state = self.items[lastSelect].isSelected
+            if state:
+                self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#99bfc3', False
+            else:
+                self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#005F6A', True
+            self.posList = [p for p in range(len(self.items)) if self.items[p].isSelected]
 
-  Example
-  -------
-  class MySelectable (Selectable):
-    def setInitState (self):            self.setItemWidget (Label (value="initial state"))
-    def onFirstSelect (self, posList):  self.itemWidget.value = "initialized "+self.item
-    def onSelection (self, posList):    print ('Your selection:',posList)
-    def __init__(self, items, behave='radio'):
-      super().__init__(items, behave, self.onSelection)
+        else: 
+            raise Exception('unknown behavior: '+self.behave)
 
-  # example: two sets of Selectable objects (two lines radio button / one line multi select)
-  a, b = [] , []
-  #
-  display (HBox (children = [MySelectable(a).widget, MySelectable(a).widget, MySelectable(a).widget] ))
-  display (HBox (children = [MySelectable(a).widget, MySelectable(a).widget, MySelectable(a).widget] ))
-  display (HTML(value='<hr>'))
-  #
-  display (HBox (children = [MySelectable(b, 'multi').widget, MySelectable(b, 'multi').widget,
-                             MySelectable(b, 'multi').widget, MySelectable(b, 'multi').widget,
-                             MySelectable(b, 'multi').widget, MySelectable(b, 'multi').widget] ))
+    def setItemWidget(self, widget):
+        """Sets the widget to display for the item."""
+        self.itemWidget, self.widget.children = widget, (*self.widget.children, widget)
 
-  """
-  def __init__(self, items, behave, selector=None):
-    """Initializes the class with given parameters.
-    set attributes, generate widgets, bind events and set initial state.
-    """
-    self.isSelected, self.items, self.behave = False, items, behave
-    self.bu_selector = Button(style={'button_color': '#99bfc3'}, layout={'width': '22px', 'height': '22px'})
-    self.widget = HBox(children=[self.bu_selector], layout={'min_height': '24px', 'overflow': 'hidden'})
-    self.items.append(self)
-    self.bu_selector.on_click(self.select)
-    self.setInitState()
-    self.selector = selector
+    def setInitState(self): 
+        raise NotImplementedError
+        
+    def onSelection(self, posList): 
+        raise NotImplementedError
 
+    def select(self, b=None):
+        """Handles the click event for the selector button."""
+        lastSelect = -1
+        # search selected item
+        for buttonPos in range(len(self.items)):
+            if self.items[buttonPos].bu_selector == self.bu_selector: 
+                break
+        # when found
+        if buttonPos < len(self.items):
+            # set isLastSelect in all selectables
+            for buttonPos in range(len(self.items)): 
+                self.items[buttonPos].isLastSelect = False
+            self.isLastSelect = True
+        # do selectable specific behavior
+        self.doBehavior()
+        # call selector
+        if self.selector:
+            self.selector(self.posList, self.lastSelect())
 
-  def doBehavior (self):
-    """Executes the selection behavior based on the specified type.
-    """
-    self.posList, lastSelect = [], self.lastSelect()
-
-    if self.behave == 'radiox':
-      state         = self.items[lastSelect].isSelected
-      for item in self.items: item.bu_selector.style.button_color, item.isSelected = '#99bfc3', False
-      if state:     self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#99bfc3', False
-      else:         self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#005F6A', True
-      self.posList  = [p for p in range (len(self.items)) if self.items[p].isSelected]
-
-    elif self.behave == 'radio':
-      for item in self.items: item.bu_selector.style.button_color, item.isSelected = '#99bfc3', False
-      self.bu_selector.style.button_color, self.isSelected, self.posList = '#005F6A', True, [lastSelect]
-
-    elif self.behave == 'multi':
-      state         = self.items[lastSelect].isSelected
-      if state:     self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#99bfc3', False
-      else:         self.items[lastSelect].bu_selector.style.button_color, self.items[lastSelect].isSelected = '#005F6A', True
-      self.posList  = [p for p in range (len(self.items)) if self.items[p].isSelected]
-
-    else: raise Exception('unknown behavior: '+self.behave)
-
-  def setItemWidget (self, widget):
-    """Sets the widget to display for the item.
-    """
-    self.itemWidget, self.widget.children = widget, (*self.widget.children, widget)
-
-  def setInitState (self): raise NotImplementedError
-  def onSelection (self, posList): raise NotImplementedError
-
-  def select (self, b=None):
-    """Handles the click event for the selector button.
-    """
-    lastSelect=-1
-    # search selected item
-    for buttonPos in range (len(self.items)):
-      if self.items[buttonPos].bu_selector == self.bu_selector: break
-    # when found
-    if buttonPos < len(self.items):
-      # set isLastSelect in all selectables
-      for buttonPos in range (len(self.items)): self.items[buttonPos].isLastSelect = False
-      self.isLastSelect = True
-    # do selectable specific behavior
-    self.doBehavior ()
-    # call selector
-    if self.selector:
-      self.selector (self.posList, self.lastSelect())
-
-  def lastSelect (self):
-    for buttonPos in range (len(self.items)):
-      if self.items[buttonPos].bu_selector == self.bu_selector: break
-    if buttonPos < len(self.items): return buttonPos
-    else: return -1
-
-
+    def lastSelect(self):
+        for buttonPos in range(len(self.items)):
+            if self.items[buttonPos].bu_selector == self.bu_selector: 
+                break
+        if buttonPos < len(self.items): 
+            return buttonPos
+        else: 
+            return -1
