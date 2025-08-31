@@ -3,13 +3,11 @@
 # %% auto 0
 __all__ = ['Selectable']
 
-# %% ../nbs/00_Selectable.ipynb 4
+# %% ../nbs/00_Selectable.ipynb 5
 """ Colab Code-Snippets
 It uses colab forms to make a top-level setting of the code snippet (optional)
 and give a little description. You can run the cell to execute the code snippet.
 """
-from ipywidgets import Button, HTML, HBox, VBox, Label, Output
-from IPython.display import display
 
 class Selectable:
   """A class representing a selectable item with customizable behavior.
